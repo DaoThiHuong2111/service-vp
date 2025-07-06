@@ -1,0 +1,153 @@
+# app.py
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from wtpsplit import SaT
+import logging
+from typing import List, Optional
+
+# Cấu hình logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Khởi tạo FastAPI app
+app = FastAPI(
+    title="Segment Any Text API",
+    description="API for text segmentation using SaT model",
+    version="1.0.0"
+)
+
+# Load model khi khởi động
+sat_model = None
+
+@app.on_event("startup")
+async def load_model():
+    global sat_model
+    logger.info("Loading SaT model...")
+    sat_model = SaT("sat-3l-sm")
+    # Nếu có GPU, uncomment dòng sau:
+    # sat_model.half().to("cuda")
+    logger.info("Model loaded successfully!")
+
+# Pydantic models cho request/response
+class TextInput(BaseModel):
+    text: str
+    do_paragraph_segmentation: Optional[bool] = False
+    threshold: Optional[float] = None
+
+class BatchTextInput(BaseModel):
+    texts: List[str]
+    do_paragraph_segmentation: Optional[bool] = False
+    threshold: Optional[float] = None
+
+class SegmentationResponse(BaseModel):
+    sentences: List[str]
+    sentence_count: int
+
+class BatchSegmentationResponse(BaseModel):
+    results: List[SegmentationResponse]
+    total_texts: int
+
+# API endpoints
+@app.get("/")
+async def root():
+    return {"message": "Segment Any Text API", "model": "sat-3l-sm"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "model_loaded": sat_model is not None}
+
+@app.post("/segment", response_model=SegmentationResponse)
+async def segment_text(input_data: TextInput):
+    """Chia tách một văn bản thành các câu"""
+    try:
+        if sat_model is None:
+            raise HTTPException(status_code=503, detail="Model not loaded")
+        
+        # Thực hiện segmentation
+        kwargs = {}
+        if input_data.threshold is not None:
+            kwargs['threshold'] = input_data.threshold
+        
+        if input_data.do_paragraph_segmentation:
+            kwargs['do_paragraph_segmentation'] = True
+            
+        sentences = sat_model.split(input_data.text, **kwargs)
+        
+        # Xử lý kết quả cho paragraph segmentation
+        if input_data.do_paragraph_segmentation:
+            # Flatten paragraphs thành sentences
+            flat_sentences = []
+            for paragraph in sentences:
+                flat_sentences.extend(paragraph)
+            sentences = flat_sentences
+        
+        # Làm sạch sentences
+        clean_sentences = [s.strip() for s in sentences if s.strip()]
+        
+        return SegmentationResponse(
+            sentences=clean_sentences,
+            sentence_count=len(clean_sentences)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in segmentation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/segment-batch", response_model=BatchSegmentationResponse)
+async def segment_batch_texts(input_data: BatchTextInput):
+    """Chia tách nhiều văn bản cùng lúc (hiệu quả hơn)"""
+    try:
+        if sat_model is None:
+            raise HTTPException(status_code=503, detail="Model not loaded")
+        
+        kwargs = {}
+        if input_data.threshold is not None:
+            kwargs['threshold'] = input_data.threshold
+        if input_data.do_paragraph_segmentation:
+            kwargs['do_paragraph_segmentation'] = True
+            
+        # Batch processing
+        batch_results = list(sat_model.split(input_data.texts, **kwargs))
+        
+        # Xử lý kết quả
+        results = []
+        for sentences in batch_results:
+            if input_data.do_paragraph_segmentation:
+                # Flatten paragraphs
+                flat_sentences = []
+                for paragraph in sentences:
+                    flat_sentences.extend(paragraph)
+                sentences = flat_sentences
+            
+            clean_sentences = [s.strip() for s in sentences if s.strip()]
+            results.append(SegmentationResponse(
+                sentences=clean_sentences,
+                sentence_count=len(clean_sentences)
+            ))
+        
+        return BatchSegmentationResponse(
+            results=results,
+            total_texts=len(input_data.texts)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in batch segmentation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/model-info")
+async def model_info():
+    """Thông tin về model hiện tại"""
+    if sat_model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    return {
+        "model_name": "sat-3l-sm",
+        "description": "3-layer Segment Any Text model",
+        "supported_languages": 85,
+        "includes_vietnamese": True,
+        "paper": "https://arxiv.org/abs/2406.16678"
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8087)
