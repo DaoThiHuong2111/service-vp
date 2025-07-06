@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # Segment Any Text API Service
+  chunk-text-api:
+    build:
+      context: ./chunk_text
+      dockerfile: Dockerfile
+    container_name: chunk-text-api
+    ports:
+      - "8087:8087"
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - OMP_NUM_THREADS=1
+      - TORCH_CPP_LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8087/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - ai-services
+
+  # Sentence Transformers Embedding Service  
+  embedding-api:
+    image: michaelf34/infinity:latest
+    container_name: embedding-api
+    ports:
+      - "8088:8088"
+    command: ["v2", "--model-id", "sentence-transformers/all-MiniLM-L6-v2", "--port", "8088", "--engine", "torch", "--device", "cpu"]
+    environment:
+      - PYTORCH_TRANSFORMERS_CACHE=/app/.cache
+      - HF_HOME=/app/.cache
+    volumes:
+      - infinity_cache:/app/.cache
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8088/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - ai-services
+
+volumes:
+  infinity_cache:
+    driver: local
+
+networks:
+  ai-services:
+    driver: bridge 
