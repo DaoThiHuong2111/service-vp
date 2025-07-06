@@ -4,6 +4,9 @@ FROM python:3.11-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# Optimize for CPU-only environment
+ENV OMP_NUM_THREADS=1
+ENV TORCH_CPP_LOG_LEVEL=INFO
 
 # Set work directory
 WORKDIR /app

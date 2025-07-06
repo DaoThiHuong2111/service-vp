@@ -14,10 +14,8 @@ docker build -t sat-api:latest .
 ### 2. Chạy Docker container
 ```bash
 # Chạy container
-docker run -d -p 8087:8087 --name sat-api-container sat-api:latest
+docker run -d -p 8087:8087 -m 2g --restart unless-stopped --name sat-api-container sat-api:latest
 
-# Hoặc chạy với logs
-docker run -p 8087:8087 --name sat-api-container sat-api:latest
 ```
 
 ### 3. Kiểm tra container
@@ -64,5 +62,18 @@ docker rmi sat-api:latest
 
 ## Lưu ý
 - Lần đầu chạy sẽ mất thời gian để download model `sat-3l-sm`
+- PyTorch CPU-only sẽ được tải trong quá trình build (khoảng 100MB - nhỏ hơn bản CUDA)
+- Container được tối ưu cho môi trường CPU
 - Container sẽ tự động restart nếu app bị crash
-- Có thể mount volume để persist data nếu cần 
+- Có thể mount volume để persist data nếu cần
+
+## Troubleshooting
+- **Lỗi "Please install torch"**: Đảm bảo requirements.txt có torch>=2.0.0 và --index-url CPU
+- **Container thoát ngay**: Kiểm tra logs với `docker logs sat-api-container`
+- **Port bị chiếm**: Dùng `docker ps` để kiểm tra container đang chạy
+- **Build chậm**: Lần đầu cài torch sẽ mất thời gian, các lần sau sẽ cache
+
+## Tối ưu hóa CPU
+- Container được config với `OMP_NUM_THREADS=1` để tối ưu CPU single-core
+- PyTorch CPU-only giảm kích thước image từ ~500MB xuống ~300MB
+- Model inference vẫn đủ nhanh cho production với CPU 
