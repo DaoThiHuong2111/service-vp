@@ -14,7 +14,7 @@ docker build -t sat-api:latest .
 ### 2. Chạy Docker container
 ```bash
 # Chạy container
-docker run -d -p 8087:8087 -m 2g --cpus="1.5" --restart unless-stopped --name sat-api-container sat-api:latest
+docker run -d -p 8087:8087 -m 800mib --cpus="1.5" --restart unless-stopped --name sat-api-container sat-api:latest
 
 ```
 

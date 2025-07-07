@@ -32,4 +32,15 @@ Tạo docker-compose.yml để orchestrate cả 2 services:
 - ✓ Cấp quyền execute cho tất cả scripts
 
 ## Things aren't done yet:
-- Test deployment trên VPS để đảm bảo hoạt động chính xác 
+- Test deployment trên VPS để đảm bảo hoạt động chính xác
+
+## Additional Optimization Work:
+- ✅ Phân tích và tối ưu app.py cho memory management
+- ✅ Tạo app_optimized.py với LRU caching và auto cleanup
+- ✅ Background memory cleanup tasks
+- ✅ Tạo requirements_optimized.txt (removed psutil dependency)
+- ✅ Tạo Dockerfile.optimized cho phiên bản tối ưu
+- ✅ Tạo OPTIMIZATION_COMPARISON.md với detailed analysis
+- ✅ New API endpoints: /cache/stats, /cache/clear (removed real-time monitoring)
+- ✅ Enhanced responses với timing và cache indicators
+- ✅ Removed real-time memory monitoring để giảm complexity 
